@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+
+<html>
+
+<body>
+    <script src="./dist/nipplejs.js"></script>
+    <script>
+        window.onload = function () {
+            var options = {
+                zone: document.getElementById('zone'),                  // active zone
+                color: "blue",
+                size: 200,
+                threshold: 2.0,
+                // 'semi' mode
+            };
+            var joystick = nipplejs.create(options);
+            
+
+            var ws = new WebSocket(`ws://${window.location.host}`);
+            ws.onopen = function () {
+
+                // Web Socket is connected, send data using send()
+                //alert("Connection is open...");
+               
+            };
+
+            ws.onmessage = function (evt) {
+                var received_msg = evt.data;
+            };
+
+            ws.onclose = function () {
+
+                // websocket is closed.
+                //alert("Connection is closed...");
+            };
+            joystick.on('move', (evt, data) => {
+                ws.send(JSON.stringify({
+                    type: 'joystickMessage',
+                    data
+                }))
+            })
+        };
+
+    </script>
+    <div style=" background-color: red ; position: absolute;width:100% ;height: 100%;" id="zone">
+
+    </div>
+</body>
+</html>
