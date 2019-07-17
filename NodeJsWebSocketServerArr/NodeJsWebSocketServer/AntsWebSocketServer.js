@@ -10,10 +10,12 @@ const server = http.createServer(app);//create a server
 
 app.use(express.static('pages'));
 
+//port = process.env.PORT || 3000;
 
-//node_modules\nipplejs
-//path.join(__dirname + '/index.html')
+//app.listen(port);
 
+
+//console.log('todo list RESTful API server started on: ' + port);
 
 /**********************websocket setup**************************************************************************************/
 //var expressWs = require('express-ws')(app,server);
@@ -32,6 +34,10 @@ app.get('/cmds', function(req, res) {
 	}
 });
 
+app.get("/url", (req, res, next) => {
+	res.json(["Tony","Lisa","Michael","Ginger","Food"]);
+   });
+
 function noop() {}
 function heartbeat() {
   this.isAlive = true;
@@ -43,6 +49,7 @@ function processCommand(input)
 	var commandToSend ="";
 			var strCmd = input;//d.toString().trim();
 			var numOfSteps =strCmd.substring(1,2);
+			console.log(`*number of steps from user: ${numOfSteps} *`)
 			if (numOfSteps == "")
 				{	
 					numOfSteps="0"
