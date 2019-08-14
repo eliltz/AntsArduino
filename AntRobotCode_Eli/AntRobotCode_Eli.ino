@@ -21,6 +21,8 @@ int distance=0;
 int randnum = 0;
 String messageFromSerial;
 
+float radius =29.05;
+
 const int pingPin = 28; //ultrasonic sensor, connected native because the RJ45 is not working
 //need to connect to pin 24, 5v and ground
 
@@ -30,8 +32,8 @@ boolean isStart = false;
 boolean isAvailable = false;
 boolean leftflag = false;
 boolean rightflag = false;
-
-uint8_t motorSpeed = 60;
+//v=  2π/60⋅r⋅RPM
+uint8_t motorSpeed = 80;//60;
 //int moveSpeed = 190;
 int turnSpeed = 200;
 
@@ -83,7 +85,11 @@ void rightMotor(int speed){
 void Forward(int runTime)
 {
   Serial.println("Moving Forward..");
-
+//  float currentPos = motor2.GetCurrentPosition();
+// Serial.print("Current position before moving");
+// Serial.print(currentPos );
+// Serial.println();
+sendStartedToMoveOverSerial();
    motor2.run(motorSpeed);
    motor4.run(-motorSpeed);
    if (runTime != 0)
@@ -95,6 +101,10 @@ void Forward(int runTime)
   {
     delay(30);
   }
+ //float currentPos = motor2.GetCurrentPosition();
+// Serial.print("Current position before moving");
+// Serial.print(currentPos );
+// Serial.println();
 }
 
 void Backward(int runTime)
@@ -103,6 +113,7 @@ void Backward(int runTime)
   Serial.print("Run Time:");
   Serial.print(runTime);
   Serial.println("");
+  sendStartedToMoveOverSerial();
    motor2.run(-motorSpeed);
    motor4.run(motorSpeed);
   if (runTime != 0)
@@ -154,8 +165,9 @@ void BackwardAndTurnRight(int runTime)
   
 void TurnLeft(int runTime)
 {
-runTime =2300;
+runTime =950;
   Serial.println("Turning Left");
+  sendStartedToMoveOverSerial();
    motor2.run(-motorSpeed);
    motor4.run(-motorSpeed);
     if (runTime != 0)
@@ -172,8 +184,9 @@ runTime =2300;
 
 void TurnRight(int runTime)
 {
-  runTime =2300;
+  runTime =1100;
   Serial.println("Turning Right");
+  sendStartedToMoveOverSerial();
    motor2.run(motorSpeed);
    motor4.run(motorSpeed);
    if (runTime != 0)
@@ -193,6 +206,7 @@ void Stop()
   Serial.println("Stopping Ant");
    motor2.stop();
    motor4.stop();
+   sendFinishedToMoveOverSerial();
 }
 
 void ChangeSpeed(int spd)
@@ -208,12 +222,25 @@ void ChangeSpeed(int spd)
 void processAntCommand(String commandToExecuteWithWhiteSp , int numOfSteps )
 {      
   int str_len = commandToExecuteWithWhiteSp.length();// + 1; 
+  Serial.println("first step in processAntCommand. Number of chars in the parameter:");
+  Serial.println(str_len);
   char char_array[str_len];
   commandToExecuteWithWhiteSp.toCharArray(char_array, str_len);
   String commandToExecute( char_array);
+ Serial.println("second step in processAntCommand. Number of chars after passing to char array:");
+  Serial.println(commandToExecute.length());
+  int runTime = numOfSteps * 3000;
+  //9.2515 //d= C/π
+  int blockDim = 50; //cm
 
-  int runTime = numOfSteps * 2000;
+//if (str_len == 3)
+////commandToExecute = commandToExecuteWithWhiteSp; // to bypass the whitespace that suddently disappeared
+//else 
 
+
+  double wheelDiameter = 58.1;
+ 
+  
   Serial.println("Inside processAntCommand, got command:");
   Serial.println(commandToExecute);
 
@@ -230,7 +257,7 @@ void processAntCommand(String commandToExecuteWithWhiteSp , int numOfSteps )
         
      else if (commandToExecute =="TL")
         {
-        Serial.println("Got Turn left Command, Calling Backward function");
+        Serial.println("Got Turn left Command, Calling Backward commandToExecuteWithWhiteSpfunction");
         TurnLeft(runTime);
         }
         
@@ -298,10 +325,31 @@ void sendDistanceOverSerial()
 {
   String buf;
   buf += String(distanceInCm);
-  buf += " cm";
-  buf = "WS_" + buf;
+  buf += " cm to nearest front obstacle. ";  
   Serial.println(buf);
+  
+  buf = "WS_" + buf;
+  Serial2.println(buf);
 }
+
+void sendStartedToMoveOverSerial()
+{
+  String buf;
+  buf += "Started Movement";  
+  Serial.println(buf);
+  buf = "WS_" + buf;
+  Serial2.println(buf);
+}
+
+void sendFinishedToMoveOverSerial()
+{
+  String buf;
+  buf += "Finished Movement";  
+  Serial.println(buf);
+  buf = "WS_" + buf;
+  Serial2.println(buf);
+}
+
 
 
 void sendMatrixToSerialAsJson(char mapMatrix[][4])
@@ -330,14 +378,14 @@ void setup()
   randomSeed(analogRead(0));
 
 
-  timer.setInterval(5000); 
+  timer.setInterval(9000); 
   timer.setCallback(sendDataOverSerial);
   timer.start();
 
   
-  timerForUS.setInterval(4000); 
+  timerForUS.setInterval(3000); 
   timerForUS.setCallback(sendDistanceOverSerial);
-  timerForUS.start();
+  //timerForUS.start();
   /*******************************************************************************/
  TCCR1A = _BV(WGM10);//timer1 will be set to 490hz in setup function
  TCCR1B = _BV(CS11) | _BV(CS10) | _BV(WGM12);//970hz
@@ -348,9 +396,13 @@ void setup()
 //u = uncharted
 //b = charted and blocked
 //c = charted and clear 
+//e = entry point
+//x - exit
+//d - destination
+
 char mapMatrixArr [rows] [cols] = {
   //as many vals as dim1
- {'u','u','u','u'},
+ {'u','u','e','u'},
  {'u','u','u','u'},
  {'u','u','u','u'}
 };
@@ -404,6 +456,8 @@ void loop()
      }
 //  Serial.println("Printing matrix");       
 //  sendMatrixToSerialAsJson(&mapMatrixArr[0]);
+
+
 //  Serial.println("*********************");       
 //   distance = usSensor.distanceCm();
 //   Serial.print("Distance from UltraSonic: ");
@@ -422,8 +476,8 @@ void loop()
     delayMicroseconds(2);
     digitalWrite(pingPin, HIGH);
     delayMicroseconds(5);
-    digitalWrite(pingPin, LOW);
-    pinMode(pingPin, INPUT);
+//    digitalWrite(pingPin, LOW);
+//    pinMode(pingPin, INPUT);
     duration = pulseIn(pingPin, HIGH);
     distanceInCm = microsecondsToCentimeters(duration);
 //    Serial.print(distanceInCm);
@@ -469,12 +523,6 @@ void loop()
 ////  Serial2.println(buf);
 //
 //  
-//  Serial.print("Humidity (%) =");
-//  Serial.print( humiture.getHumidity() );
-//  Serial.print(", Temperature (oC) =");
-//  Serial.println( humiture.getTemperature() );
-//  Serial.println("###########################");
-//  delay(100);
    /************************** 4.  End Of Temp and Humidity Sensor*********************************/
 
 }
