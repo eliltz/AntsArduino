@@ -98,8 +98,12 @@ void loop() {
  if (client.connected()) {
     currentMillis=millis(); 
     webSocketClient.getData(data); 
+   //  webSocketClient.sendData(data); //DEBUG
+     // Serial.println("outside data not empty");  //DEBUG
     if (data != "")
     {           
+       //   Serial.println("Inside data not empty"); //DEBUG
+       //    Serial.println(data); //DEBUG
       // Length (with one extra character for the null terminator)
       int str_len = data.length() + 1; 
       
@@ -117,14 +121,34 @@ void loop() {
       }
       data ="";         
     }
+    else 
+    {
+      
+
+//u = uncharted
+//b = charted and blocked
+//c = charted and clear 
+//e = entry point
+//x - exit
+//d - destination
+//int rows =3, cols = 4;
+//char mapMatrixArr [rows] [cols] = {
+//  //as many vals as dim1
+// {'u','c','e','u'},
+// {'c','c','u','u'},
+// {'b','c','u','u'}
+// {'u','c','u','u'}
+// {'u','x','u','u'}
+// 
+//};
 
 
-//ArduinoSerial.println(data);
-// webSocketClient.sendData(data);
- 
-//   
-//
-////    
+
+      Serial.println("data is empty or no data was received from arduinoAnt");
+     }
+
+
+ // Getting data from the arduino board
     while(Serial.available()== 0);
     msgIN = Serial.readStringUntil('\n');
    // Serial.println(msgIN);  
@@ -136,7 +160,14 @@ void loop() {
       webSocketClient.sendData(subMsgToWebSocket);
     }
    }//end of if client connected
+else
+{
+  Serial.println("not connected...");
+}
     delay(5);
+
+
+    
 
   }
              
