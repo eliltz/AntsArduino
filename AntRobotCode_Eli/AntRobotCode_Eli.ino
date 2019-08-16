@@ -22,7 +22,7 @@ int randnum = 0;
 String messageFromSerial;
 
 float radius =29.05;
-
+const int _timeToRunConst = 3000;
 const int pingPin = 28; //ultrasonic sensor, connected native because the RJ45 is not working
 //need to connect to pin 24, 5v and ground
 
@@ -89,13 +89,16 @@ void Forward(int runTime)
 // Serial.print("Current position before moving");
 // Serial.print(currentPos );
 // Serial.println();
-sendStartedToMoveOverSerial();
+  
+  //sendStartedToMoveOverSerial();
+   SendMessageOverSerial("Started forward_SF");
    motor2.run(motorSpeed);
    motor4.run(-motorSpeed);
    if (runTime != 0)
   {
     delay(runTime);
     Stop();
+    SendMessageOverSerial("Finished forward_FF");
   }
   else
   {
@@ -113,7 +116,8 @@ void Backward(int runTime)
   Serial.print("Run Time:");
   Serial.print(runTime);
   Serial.println("");
-  sendStartedToMoveOverSerial();
+ // sendStartedToMoveOverSerial();
+  SendMessageOverSerial("Started backwards_SB");
    motor2.run(-motorSpeed);
    motor4.run(motorSpeed);
   if (runTime != 0)
@@ -122,6 +126,7 @@ void Backward(int runTime)
     delay(runTime);
     Serial.print("Stopping.");
     Stop();
+    SendMessageOverSerial("Finished backwards_FB");
   }
   else
   {
@@ -167,13 +172,15 @@ void TurnLeft(int runTime)
 {
 runTime =950;
   Serial.println("Turning Left");
-  sendStartedToMoveOverSerial();
+  //sendStartedToMoveOverSerial();
+  SendMessageOverSerial("Started turning left_STL");
    motor2.run(-motorSpeed);
    motor4.run(-motorSpeed);
     if (runTime != 0)
   {
     delay(runTime);
     Stop();
+    SendMessageOverSerial("Finished turning left_FTL");
   }
   else
   {
@@ -186,13 +193,15 @@ void TurnRight(int runTime)
 {
   runTime =1100;
   Serial.println("Turning Right");
-  sendStartedToMoveOverSerial();
+  //sendStartedToMoveOverSerial();
+  SendMessageOverSerial("Started turning right_STR");
    motor2.run(motorSpeed);
    motor4.run(motorSpeed);
    if (runTime != 0)
   {
     delay(runTime);
     Stop();
+    SendMessageOverSerial("Finished turning right_FTR");
   }
   else
   {
@@ -206,7 +215,8 @@ void Stop()
   Serial.println("Stopping Ant");
    motor2.stop();
    motor4.stop();
-   sendFinishedToMoveOverSerial();
+   //sendFinishedToMoveOverSerial();
+   SendMessageOverSerial("Stopped ant_SA");
 }
 
 void ChangeSpeed(int spd)
@@ -229,7 +239,7 @@ void processAntCommand(String commandToExecuteWithWhiteSp , int numOfSteps )
   String commandToExecute( char_array);
  Serial.println("second step in processAntCommand. Number of chars after passing to char array:");
   Serial.println(commandToExecute.length());
-  int runTime = numOfSteps * 3000;
+  int runTime = numOfSteps * _timeToRunConst;//3000;
   //9.2515 //d= C/π
   int blockDim = 50; //cm
 
@@ -351,6 +361,23 @@ void sendFinishedToMoveOverSerial()
 }
 
 
+void SendMessageOverSerial(char *message) 
+{  
+  String buf;
+  buf += message;  
+  Serial.println(buf);
+  buf = "WS_" + buf;
+  Serial2.println(buf);
+//    Serial.print(hour());
+//    Serial.print(":");
+//    Serial.print(minute());
+//    Serial.print(":");
+//    Serial.print(second());
+//    Serial.print(" ");  
+//    Serial.println(logmessage);
+//    Serial2.println(buf);
+  
+}
 
 void sendMatrixToSerialAsJson(char mapMatrix[][4])
 {  
@@ -418,6 +445,19 @@ long microsecondsToCentimeters(long microseconds)
 
 void loop() 
 {
+
+  //For testing purposes - read from user serial
+   if (Serial.available())
+     {
+       while(Serial.available()== 0);
+       msgIN = Serial.readStringUntil('\n');
+       Serial.println("Got this from serial1 User?");
+       Serial.println(msgIN);
+       Forward(12321);
+       Backward(12321);
+     }
+
+
   
   timer.update();
   timerForUS.update();
