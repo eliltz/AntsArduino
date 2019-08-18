@@ -21,6 +21,7 @@ int distance=0;
 int randnum = 0;
 String messageFromSerial;
 
+int messageCounter =0;
 float radius =29.05;
 const int _timeToRunConst = 3000;
 const int pingPin = 28; //ultrasonic sensor, connected native because the RJ45 is not working
@@ -36,6 +37,9 @@ boolean rightflag = false;
 uint8_t motorSpeed = 80;//60;
 //int moveSpeed = 190;
 int turnSpeed = 200;
+
+
+String antIdFromServer="";
 
 Timer timer;
 Timer timerForUS;
@@ -91,14 +95,15 @@ void Forward(int runTime)
 // Serial.println();
   
   //sendStartedToMoveOverSerial();
-   SendMessageOverSerial("Started forward_SF");
+   SendMessageOverSerialconcatID("Started forward_SF");
+  // SendMessageOverSerial(antIdFromServer);
    motor2.run(motorSpeed);
    motor4.run(-motorSpeed);
    if (runTime != 0)
   {
     delay(runTime);
     Stop();
-    SendMessageOverSerial("Finished forward_FF");
+    SendMessageOverSerialconcatID("Finished forward_FF");
   }
   else
   {
@@ -117,7 +122,7 @@ void Backward(int runTime)
   Serial.print(runTime);
   Serial.println("");
  // sendStartedToMoveOverSerial();
-  SendMessageOverSerial("Started backwards_SB");
+  SendMessageOverSerialconcatID("Started backwards_SB");
    motor2.run(-motorSpeed);
    motor4.run(motorSpeed);
   if (runTime != 0)
@@ -126,7 +131,7 @@ void Backward(int runTime)
     delay(runTime);
     Serial.print("Stopping.");
     Stop();
-    SendMessageOverSerial("Finished backwards_FB");
+    SendMessageOverSerialconcatID("Finished backwards_FB");
   }
   else
   {
@@ -173,14 +178,14 @@ void TurnLeft(int runTime)
 runTime =950;
   Serial.println("Turning Left");
   //sendStartedToMoveOverSerial();
-  SendMessageOverSerial("Started turning left_STL");
+  SendMessageOverSerialconcatID("Started turning left_STL");
    motor2.run(-motorSpeed);
    motor4.run(-motorSpeed);
     if (runTime != 0)
   {
     delay(runTime);
     Stop();
-    SendMessageOverSerial("Finished turning left_FTL");
+    SendMessageOverSerialconcatID("Finished turning left_FTL");
   }
   else
   {
@@ -194,14 +199,14 @@ void TurnRight(int runTime)
   runTime =1100;
   Serial.println("Turning Right");
   //sendStartedToMoveOverSerial();
-  SendMessageOverSerial("Started turning right_STR");
+  SendMessageOverSerialconcatID("Started turning right_STR");
    motor2.run(motorSpeed);
    motor4.run(motorSpeed);
    if (runTime != 0)
   {
     delay(runTime);
     Stop();
-    SendMessageOverSerial("Finished turning right_FTR");
+    SendMessageOverSerialconcatID("Finished turning right_FTR");
   }
   else
   {
@@ -216,7 +221,7 @@ void Stop()
    motor2.stop();
    motor4.stop();
    //sendFinishedToMoveOverSerial();
-   SendMessageOverSerial("Stopped ant_SA");
+   SendMessageOverSerialconcatID("Stopped ant_SA");
 }
 
 void ChangeSpeed(int spd)
@@ -361,22 +366,38 @@ void sendFinishedToMoveOverSerial()
 }
 
 
-void SendMessageOverSerial(char *message) 
+void SendMessageOverSerialconcatID(char *message) 
 {  
   String buf;
   buf += message;  
   Serial.println(buf);
   buf = "WS_" + buf;
+  buf =   buf + "_" + antIdFromServer ;
+  Serial.println(buf);
   Serial2.println(buf);
-//    Serial.print(hour());
-//    Serial.print(":");
-//    Serial.print(minute());
-//    Serial.print(":");
-//    Serial.print(second());
-//    Serial.print(" ");  
-//    Serial.println(logmessage);
-//    Serial2.println(buf);
+
   
+}
+
+
+void SendMessageOverSerial(char *message) 
+{  
+  String buf;
+  buf += message;  
+  Serial.println(buf);
+  buf = "WS_" + buf ;
+  Serial.println(buf);
+  Serial2.println(buf);
+}
+
+void SendAntIdMessageOverSerial() 
+{  
+  String buf;   
+  Serial.println(buf);
+  buf = "WS_ID_IS" + buf;
+  buf =   buf + antIdFromServer ;
+  Serial.println(buf);
+  Serial2.println(buf);
 }
 
 void sendMatrixToSerialAsJson(char mapMatrix[][4])
@@ -446,16 +467,28 @@ long microsecondsToCentimeters(long microseconds)
 void loop() 
 {
 
-  //For testing purposes - read from user serial
-   if (Serial.available())
-     {
-       while(Serial.available()== 0);
-       msgIN = Serial.readStringUntil('\n');
-       Serial.println("Got this from serial1 User?");
-       Serial.println(msgIN);
-       Forward(12321);
-       Backward(12321);
-     }
+ // For testing purposes - read from user serial
+//   if (Serial.available())
+//     {
+//       while(Serial.available()== 0);
+//       msgIN = Serial.readStringUntil('\n');
+//       Serial.println("Got this from serial1 User?");
+//       Serial.println(msgIN);
+//        if (msgIN.startsWith("AID_"))
+//       {
+//         String antIdToAssign = msgIN.substring(4);      
+//         Serial.println("Assigning id to the ant");       
+//         Serial.println(antIdToAssign);       
+//       antIdFromServer =antIdToAssign;
+//       // int antIntIdToAssign = antIdToAssign.toInt();//= (msgIN.substring(5,1)).toInt(); //need to change to dynamicaly check the number. not only one digit;      
+//        Serial.print("Got this as an ID:");
+//        Serial.print(antIdFromServer);
+//        Serial.println("");       
+//        SendAntIdMessageOverSerial();
+//        }
+//      // Forward(120);
+//      // Backward(12321);
+//     }
 
 
   
@@ -473,8 +506,30 @@ void loop()
        msgIN = Serial2.readStringUntil('\n');
        Serial.println("Got this from serial2 - from the esp8266:");
        Serial.println(msgIN);
+       if (messageCounter ==0 )
+        {
+          SendMessageOverSerial("Hello Server");
+          messageCounter =1;
+        }
 
         // delay(5000);
+          if (msgIN.startsWith("AID_"))
+       {
+         String antIdToAssign = msgIN.substring(4);      
+         Serial.println("Assigning id to the ant");       
+         Serial.println(antIdToAssign);       
+       antIdFromServer =antIdToAssign;
+       // int antIntIdToAssign = antIdToAssign.toInt();//= (msgIN.substring(5,1)).toInt(); //need to change to dynamicaly check the number. not only one digit;      
+        Serial.print("Got this as an ID:");
+        Serial.print(antIdFromServer);
+        Serial.println("");       
+        SendAntIdMessageOverSerial();
+        //antIdFromServer = antIntIdToAssign;
+       // SendMessageOverSerial(antIntIdToAssign);
+        //SendMessageOverSerial(antIdFromServer);
+         
+        }
+        else
        if (msgIN.startsWith("AC_"))
        {
          String antCommand = msgIN.substring(5);      
@@ -492,6 +547,8 @@ void loop()
          
        //  delay(5000);
         }
+
+     
       }
      }
 //  Serial.println("Printing matrix");       
@@ -530,7 +587,7 @@ void loop()
 //    {    
 //      Serial.println("Less then 15 cm ahead, stopping");
 //      Stop();
-//    }
+//    } 
 
     
 //  
