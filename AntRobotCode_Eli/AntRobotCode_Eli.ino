@@ -1,3 +1,6 @@
+#include <Event.h>
+#include <Timer.h>
+
 //#include "MeOrion.h"
 #include <Wire.h>
 #include <SoftwareSerial.h>
@@ -5,7 +8,6 @@
 //#include <MeOrion.h>
 #include <MeMegaPiPro.h>
 #include <timer.h>
-#include <ArduinoJson.h>
 
 /** Function List:
  *
@@ -22,8 +24,7 @@ int randnum = 0;
 String messageFromSerial;
 
 int messageCounter =0;
-float radius =29.05;
-const int _timeToRunConst = 3000;
+//const int _timeToRunConst = 3000;
 const int pingPin = 28; //ultrasonic sensor, connected native because the RJ45 is not working
 //need to connect to pin 24, 5v and ground
 
@@ -33,11 +34,13 @@ boolean isStart = false;
 boolean isAvailable = false;
 boolean leftflag = false;
 boolean rightflag = false;
-//v=  2π/60⋅r⋅RPM
-uint8_t motorSpeed = 80;//60;
-//int moveSpeed = 190;
+
 int turnSpeed = 200;
 
+//int stepWorth = 780;
+int stepWorth = 360;
+
+int speedToMoveAt =150;
 
 String antIdFromServer="";
 
@@ -46,182 +49,116 @@ Timer timerForUS;
 long distanceInCm;
 
 long randNumber; //for demo purposes only.
-int rows =3, cols = 4;
-char mapMatrixArr [3] [4] = {
-  //as many vals as dim1
- {'u','u','u','u'},
- {'u','u','u','u'},
- {'u','u','u','u'}
-};
 
-MeMegaPiDCMotor motor2(PORT1B);
-MeMegaPiDCMotor motor4(PORT2B);
+//*******Defenition of motor related 
+MeEncoderOnBoard Encoder_1(SLOT1);
+MeEncoderOnBoard Encoder_2(SLOT2);
 
+void isr_process_encoder1(void)
+{
+  if(digitalRead(Encoder_1.getPortB()) == 0)
+  {
+    Encoder_1.pulsePosMinus();
+  }
+  else
+  {
+    Encoder_1.pulsePosPlus();;
+  }
+}
 
+void isr_process_encoder2(void)
+{
+  if(digitalRead(Encoder_2.getPortB()) == 0)
+  {
+    Encoder_2.pulsePosMinus();
+  }
+  else
+  {
+    Encoder_2.pulsePosPlus();
+  }
+}
 
+//*********
 
 String msgIN = ""; //Will contain message from Serial port.
 
-
-/*motors control */
-void leftMotor(int speed){
-  Serial.println("leftMotor:");
-  Serial.println(speed);
-  if (speed){
-    motor2.run(motorSpeed); /* value: between -255 and 255. */
-  }else{
-    motor2.stop();
-  }
+void printEncoderCurrentPosition()
+{
+ float current1Pos = Encoder_1.getCurPos();
+ float current2Pos = Encoder_2.getCurPos();
+ Serial.print("Current position before moving, first: ");
+ Serial.print(current1Pos);
+ Serial.print("second: ");
+ Serial.print(current2Pos);
+ Serial.println(); 
 }
-
-void rightMotor(int speed){
-  Serial.println("rightMotor:");
-  Serial.println(speed);
-  if (speed){
-    motor4.run(-motorSpeed); /* value: between -255 and 255. */
-  }else{
-    motor4.stop();
-  }
-}
-/* end of motors control */
 
 /************************** 4. Start Of Ant movement functions*********************************/
-void Forward(int runTime)
+void Forward(int positionToGoTo)
 {
-  Serial.println("Moving Forward..");
-//  float currentPos = motor2.GetCurrentPosition();
-// Serial.print("Current position before moving");
-// Serial.print(currentPos );
-// Serial.println();
-  
-  //sendStartedToMoveOverSerial();
-   SendMessageOverSerialconcatID("Started forward_SF");
-  // SendMessageOverSerial(antIdFromServer);
-   motor2.run(motorSpeed);
-   motor4.run(-motorSpeed);
-   if (runTime != 0)
-  {
-    delay(runTime);
-    Stop();
-    SendMessageOverSerialconcatID("Finished forward_FF");
-  }
-  else
-  {
-    delay(30);
-  }
- //float currentPos = motor2.GetCurrentPosition();
-// Serial.print("Current position before moving");
-// Serial.print(currentPos );
-// Serial.println();
+  Serial.print("Moving Forward to position:");
+  Serial.print(positionToGoTo);
+  Serial.println();
+  printEncoderCurrentPosition();
+  Encoder_1.moveTo(positionToGoTo,speedToMoveAt);
+  Encoder_2.moveTo(-positionToGoTo,speedToMoveAt);
+  printEncoderCurrentPosition();    
+  SendMessageOverSerialconcatID("Started forward_SF");  
+    
+  delay(300);
+    
+  SendMessageOverSerialconcatID("Finished forward_FF");  
 }
 
-void Backward(int runTime)
+void Backward(int positionToGoTo)
 {  
-  Serial.println("Moving Backward");
-  Serial.print("Run Time:");
-  Serial.print(runTime);
-  Serial.println("");
- // sendStartedToMoveOverSerial();
-  SendMessageOverSerialconcatID("Started backwards_SB");
-   motor2.run(-motorSpeed);
-   motor4.run(motorSpeed);
-  if (runTime != 0)
-  {
-  Serial.print("Delaying...");  
-    delay(runTime);
-    Serial.print("Stopping.");
-    Stop();
-    SendMessageOverSerialconcatID("Finished backwards_FB");
-  }
-  else
-  {
-    delay(30);
-  }
-}
-
-void BackwardAndTurnLeft(int runTime)
-{
-  runTime =2300;
-  Serial.println("Moving BackwardAndTurnLeft");
-   motor2.run(-motorSpeed);
-   motor4.run(motorSpeed/2);
-   if (runTime != 0)
-  {
-    delay(runTime);
-    Stop();
-  }
-  else
-  {
-    delay(30);
-  }
-}
-
-void BackwardAndTurnRight(int runTime)
-{
-  runTime =2300;
-  Serial.println("Moving BackwardAndTurnRight");
-   motor2.run(motorSpeed/2);
-   motor4.run(-motorSpeed);
-   if (runTime != 0)
-  {
-    delay(runTime);
-    Stop();
-  }
-  else
-  {
-    delay(30);
-  }
+   Serial.println("Moving Backward to position:");  
+   Serial.print(positionToGoTo);
+   Serial.println("");
+    
+   SendMessageOverSerialconcatID("Started backwards_SB");  
+   printEncoderCurrentPosition();
+   Encoder_1.moveTo(-positionToGoTo , speedToMoveAt);
+   Encoder_2.moveTo(positionToGoTo , speedToMoveAt);
+   printEncoderCurrentPosition();
+   
+   delay(300);
+   
+   SendMessageOverSerialconcatID("Finished backwards_FB");
 }
   
-void TurnLeft(int runTime)
+void TurnLeft()
 {
-runTime =950;
-  Serial.println("Turning Left");
-  //sendStartedToMoveOverSerial();
+  Serial.println("Turning Left"); 
   SendMessageOverSerialconcatID("Started turning left_STL");
-   motor2.run(-motorSpeed);
-   motor4.run(-motorSpeed);
-    if (runTime != 0)
-  {
-    delay(runTime);
-    Stop();
-    SendMessageOverSerialconcatID("Finished turning left_FTL");
-  }
-  else
-  {
-    delay(30);
-    Stop();
-  }
+  printEncoderCurrentPosition();
+  Encoder_1.moveTo(-360, speedToMoveAt);
+  Encoder_2.moveTo(-360, speedToMoveAt);
+  printEncoderCurrentPosition();
+  delay(300);
+
+  SendMessageOverSerialconcatID("Finished turning left_FTL");
 }
 
-void TurnRight(int runTime)
+void TurnRight()
 {
-  runTime =1100;
   Serial.println("Turning Right");
-  //sendStartedToMoveOverSerial();
   SendMessageOverSerialconcatID("Started turning right_STR");
-   motor2.run(motorSpeed);
-   motor4.run(motorSpeed);
-   if (runTime != 0)
-  {
-    delay(runTime);
-    Stop();
-    SendMessageOverSerialconcatID("Finished turning right_FTR");
-  }
-  else
-  {
-    delay(30);
-  }
+  printEncoderCurrentPosition();
+  Encoder_1.moveTo(360  , speedToMoveAt);
+  Encoder_2.moveTo(360, speedToMoveAt);
+  printEncoderCurrentPosition();
+  delay(300);
 
+  SendMessageOverSerialconcatID("Finished turning right_FTR");
 }
 
 void Stop()
 {
   Serial.println("Stopping Ant");
-   motor2.stop();
-   motor4.stop();
-   //sendFinishedToMoveOverSerial();
-   SendMessageOverSerialconcatID("Stopped ant_SA");
+
+  SendMessageOverSerialconcatID("Stopped ant_SA");
+  printEncoderCurrentPosition();
 }
 
 void ChangeSpeed(int spd)
@@ -229,86 +166,72 @@ void ChangeSpeed(int spd)
   Serial.print("Changing Speed to ");
   Serial.print(spd);
   Serial.println("");
-  motorSpeed = spd;
+  speedToMoveAt = spd;
 }
 /************************** 4. End of Ant movement functions*********************************/
 
-
-void processAntCommand(String commandToExecuteWithWhiteSp , int numOfSteps )
+void processAntCommand(String commandToExecuteWithWhiteSp , int positionToGoTo)
 {      
   int str_len = commandToExecuteWithWhiteSp.length();// + 1; 
-  Serial.println("first step in processAntCommand. Number of chars in the parameter:");
-  Serial.println(str_len);
+  Serial.print("first step in processAntCommand. Number of chars in the parameter:");
+  Serial.print(str_len);
+  Serial.println("");
+  Serial.print("And the command is:");
+  Serial.print(commandToExecuteWithWhiteSp);
+  Serial.println("");
   char char_array[str_len];
   commandToExecuteWithWhiteSp.toCharArray(char_array, str_len);
   String commandToExecute( char_array);
- Serial.println("second step in processAntCommand. Number of chars after passing to char array:");
-  Serial.println(commandToExecute.length());
-  int runTime = numOfSteps * _timeToRunConst;//3000;
-  //9.2515 //d= C/π
-  int blockDim = 50; //cm
+  Serial.println("second step in processAntCommand. Number of chars after passing to char array:");
+  Serial.println(commandToExecute.length()); 
 
 //if (str_len == 3)
 ////commandToExecute = commandToExecuteWithWhiteSp; // to bypass the whitespace that suddently disappeared
 //else 
 
-
-  double wheelDiameter = 58.1;
- 
-  
-  Serial.println("Inside processAntCommand, got command:");
-  Serial.println(commandToExecute);
-
+ String CommandWith2chars = commandToExecuteWithWhiteSp.substring(0,2);
+ Serial.print("CommandWith2chars after substring:");
+ Serial.print(CommandWith2chars);
+ Serial.println("");
+ Serial.println("Inside processAntCommand, got command:");
+ Serial.println(commandToExecute);
+ commandToExecute =CommandWith2chars;
+  Serial.println("");
   if (commandToExecute =="GF")
     {
-    Serial.println("Got Go_Forward Command, Calling Forward function");
-    Forward(runTime);
+      Serial.println("Got Go_Forward Command, Calling Forward function");
+      Forward(positionToGoTo);
     }
      else if (commandToExecute =="GB")
-        {
-        Serial.println("Got Go_Backwards Command, Calling Backward function");
-        Backward(runTime);
-        }
-        
+       {
+          Serial.println("Got Go_Backwards Command, Calling Backward function");
+          Backward(positionToGoTo);
+       }       
      else if (commandToExecute =="TL")
         {
-        Serial.println("Got Turn left Command, Calling Backward commandToExecuteWithWhiteSpfunction");
-        TurnLeft(runTime);
-        }
-        
+          Serial.println("Got Turn left Command, Calling Backward commandToExecuteWithWhiteSpfunction");
+          TurnLeft();
+        }        
      else if (commandToExecute =="TR")
         {
-        Serial.println("Got Turn right Command, Calling Backward function");
-        TurnRight(runTime);
-        }
-        
-         else if (commandToExecute =="BTL")
-        {
-        Serial.println("Got Backward Turn left Command, Calling Backward & Left function");
-        TurnLeft(runTime);
-        }
-        
-     else if (commandToExecute =="BTR")
-        {
-        Serial.println("Got Backwards Turn right Command, Calling Backward & Right function");
-        TurnRight(runTime);
-        }
-        
+          Serial.println("Got Turn right Command, Calling Backward function");
+          TurnRight();
+        }                    
      else if (commandToExecute.startsWith("CS"))
         {
-        Serial.println("Got change speed command");
-        String newSpd = commandToExecute.substring(2);
-        int spd = newSpd.toInt();
-        ChangeSpeed(spd);
+          Serial.println("Got change speed command");
+          String newSpd = commandToExecute.substring(2);
+          int spd = newSpd.toInt();
+          ChangeSpeed(spd);
         }
     else if (commandToExecute =="S")
         {
-        Serial.println("Got Stop Command, Calling Stop function");
-        Stop();
+          Serial.println("Got Stop Command, Calling Stop function");
+          Stop();
         }
     else 
     {
-    Serial.println("Could not find the right command");
+      Serial.println("Could not find the right command");
     }
  }
 
@@ -400,31 +323,12 @@ void SendAntIdMessageOverSerial()
   Serial2.println(buf);
 }
 
-void sendMatrixToSerialAsJson(char mapMatrix[][4])
-{  
-//  StaticJsonDocument<256> doc;
-//  char a[]  = {1,2,3};
-////  char mapMatrix2[][4] ={
-////  {'u','u','u','u'},
-////  {'u','u','u','u'},
-////  {'u','u','u','u'}
-////  };
-//  //JsonArray array = jsonBuffer.createArray();
-//  copyArray(mapMatrix[0][4], doc.to<JsonArray>());
-//  serializeJson(doc, Serial);
-// // Serial.println();
-}
-
 void setup() 
 {
-
-
   Serial.begin(9600);
- // Serial2.begin(9600);
   Serial2.begin(9600);
   
   randomSeed(analogRead(0));
-
 
   timer.setInterval(9000); 
   timer.setCallback(sendDataOverSerial);
@@ -440,21 +344,35 @@ void setup()
 
   /*******************************************************************************/
 
+//--------------------- Motor Related ----------------------------//
 
-//u = uncharted
-//b = charted and blocked
-//c = charted and clear 
-//e = entry point
-//x - exit
-//d - destination
+ attachInterrupt(Encoder_1.getIntNum(), isr_process_encoder1, RISING);
+ attachInterrupt(Encoder_2.getIntNum(), isr_process_encoder2, RISING);
+//  Serial.begin(115200);
 
-char mapMatrixArr [rows] [cols] = {
-  //as many vals as dim1
- {'u','u','e','u'},
- {'u','u','u','u'},
- {'u','u','u','u'}
-};
+//set pwm 1khz
+  TCCR1A = _BV(WGM10);//PIN12
+  TCCR1B = _BV(CS11) | _BV(CS10) | _BV(WGM12);
+ 
+  TCCR2A = _BV(WGM21) | _BV(WGM20);//PIN8
+  TCCR2B = _BV(CS22);
 
+  TCCR3A = _BV(WGM30);//PIN9
+  TCCR3B = _BV(CS31) | _BV(CS30) | _BV(WGM32);
+
+  TCCR4A = _BV(WGM40);//PIN5
+  TCCR4B = _BV(CS41) | _BV(CS40) | _BV(WGM42);
+
+  Encoder_1.setPulse(7);
+  Encoder_2.setPulse(7);
+  Encoder_1.setRatio(26.9);
+  Encoder_2.setRatio(26.9);
+  
+  Encoder_1.setPosPid(1.8,0,0.5);
+  Encoder_2.setPosPid(1.8,0,0.5);
+  Encoder_1.setSpeedPid(0.18,0,0);
+  Encoder_2.setSpeedPid(0.18,0,0);
+//--------------------- Motor Related ----------------------------//
 
 }
 
@@ -467,13 +385,123 @@ long microsecondsToCentimeters(long microseconds)
 void loop() 
 {
 
- // For testing purposes - read from user serial
-//   if (Serial.available())
-//     {
-//       while(Serial.available()== 0);
-//       msgIN = Serial.readStringUntil('\n');
-//       Serial.println("Got this from serial1 User?");
-//       Serial.println(msgIN);
+//  For testing purposes - read from user serial
+   if (Serial.available())
+     {
+       while(Serial.available()== 0);
+       msgIN = Serial.readStringUntil('\n');
+       Serial.println("Got this from serial as user input:");
+       Serial.println(msgIN);
+       if (msgIN.startsWith("c"))
+       {
+        //distancetogo
+        //move
+        //moveto
+         switch(msgIN)
+          {
+            case '0':
+              printEncoderCurrentPosition();
+              Encoder_1.moveTo(0,speedToMoveAt);
+              Encoder_2.moveTo(0,speedToMoveAt);
+              printEncoderCurrentPosition();
+            break;
+            case '1':
+              printEncoderCurrentPosition();
+              Encoder_1.move(stepWorth,speedToMoveAt);
+              Encoder_2.move(-stepWorth,speedToMoveAt);
+              printEncoderCurrentPosition();
+            break;
+            case '2':
+              printEncoderCurrentPosition();
+              Encoder_1.distanceToGo(stepWorth,speedToMoveAt);
+              Encoder_2.distanceToGo(-stepWorth,speedToMoveAt);
+              printEncoderCurrentPosition();
+            break;
+            case 'cc':
+               int distanceToGoCommand = (msgIN.substring(2)).toInt(); //need to change to dynamicaly check the number. not only one digit;      
+              //int positionToGoTo = 0;
+              Serial.print("distanceToGoCommand:");
+              Serial.print(distanceToGoCommand);
+              Serial.print(", stepWorth:");
+              Serial.print(stepWorth);             
+              Serial.print(", speedToMoveAt:");
+              Serial.print(speedToMoveAt);              
+              Serial.println("");                
+              printEncoderCurrentPosition();
+              Encoder_1.distanceToGo(distanceToGoCommand,speedToMoveAt);
+              Encoder_2.distanceToGo(-distanceToGoCommand,speedToMoveAt);
+              printEncoderCurrentPosition();
+            break;                    
+             case 'cs':              
+              int numberOfStepsToTake = (msgIN.substring(2)).toInt(); //need to change to dynamicaly check the number. not only one digit;      
+              //int positionToGoTo = 0;
+              Serial.print("Number of steps:");
+              Serial.print(numberOfStepsToTake);
+              Serial.print(", stepWorth:");
+              Serial.print(stepWorth);             
+              Serial.print(", speedToMoveAt:");
+              Serial.print(speedToMoveAt);              
+              Serial.println("");                
+              printEncoderCurrentPosition();
+              Encoder_1.distanceToGo(numberOfStepsToTake * stepWorth,speedToMoveAt);
+              Encoder_2.distanceToGo(-(numberOfStepsToTake * stepWorth),speedToMoveAt);
+              printEncoderCurrentPosition();
+            break;   
+            case '6':
+              printEncoderCurrentPosition();
+            break;          
+            default:
+            break;
+          }
+         String antCommand = msgIN.substring(1);      
+         Serial.print("Sending this command to processing:");       
+         Serial.print(antCommand);       
+         Serial.println();
+         int numOfSteps = (msgIN.substring(3,4)).toInt(); //need to change to dynamicaly check the number. not only one digit;      
+         int positionToGoTo = 0;
+         Serial.print("Number of steps:");
+         Serial.print(numOfSteps);
+         Serial.println("");   
+         if (numOfSteps ==0)
+          positionToGoTo = 0;     
+         if (numOfSteps ==1)
+          positionToGoTo = 360;
+          if (numOfSteps ==2)
+          positionToGoTo = 1800;
+          if (numOfSteps ==3)
+          positionToGoTo = 2000;
+          if (numOfSteps ==4)
+          positionToGoTo = 3600;      
+            Serial.print("positionToGoTo:");
+           Serial.print(positionToGoTo);
+            Serial.println("");  
+         //processAntCommand(antCommand, positionToGoTo);
+          Encoder_1.moveTo(positionToGoTo,speedToMoveAt);
+          Encoder_2.moveTo(-positionToGoTo,speedToMoveAt);
+         distanceToGo
+       }
+        if (msgIN.startsWith("s"))
+       {
+         int speedOf = (msgIN.substring(1,4)).toInt(); //need to change to dynamicaly check the number. not only one digit;   
+         Serial.print("Speed to change to: ");  
+         Serial.print(speedOf);  
+         Serial.println("");  
+         changeSpeed(speedOf);
+         Serial.print("speedToMoveAt changed to: ");  
+         Serial.print(speedToMoveAt);  
+         Serial.println("");  
+       }
+     }
+
+     // delay(2000);
+       Encoder_1.loop();
+       Encoder_2.loop();
+      // delay(2000);
+
+
+
+
+      
 //        if (msgIN.startsWith("AID_"))
 //       {
 //         String antIdToAssign = msgIN.substring(4);      
@@ -486,11 +514,17 @@ void loop()
 //        Serial.println("");       
 //        SendAntIdMessageOverSerial();
 //        }
+//AC_1_GF
 //      // Forward(120);
 //      // Backward(12321);
 //     }
 
-
+ // Forward(2500);
+  //TurnRight(1100);
+ // Forward(2500);
+  //Forward(2500);
+  //TurnLeft(1100);
+  
   
   timer.update();
   timerForUS.update();
@@ -535,13 +569,14 @@ void loop()
          String antCommand = msgIN.substring(5);      
          Serial.println("Sending the command to processing");       
     
-        int numOfSteps = (msgIN.substring(3,4)).toInt(); //need to change to dynamicaly check the number. not only one digit;      
-        Serial.print("Number of steps:");
-        Serial.print(numOfSteps);
+        int numOfSteps = (msgIN.substring(3,4)).toInt(); //need to change to dynamicaly check the number. not only one digit;     
+        int positionToGoTo =0; 
+        Serial.print("positionToGoTo");
+        Serial.print(positionToGoTo);
         Serial.println("");
 
          
-         processAntCommand(antCommand, numOfSteps);
+         processAntCommand(antCommand, positionToGoTo);
 
 
          
@@ -551,11 +586,8 @@ void loop()
      
       }
      }
-//  Serial.println("Printing matrix");       
-//  sendMatrixToSerialAsJson(&mapMatrixArr[0]);
 
-
-//  Serial.println("*********************");       
+//   Serial.println("*********************");       
 //   distance = usSensor.distanceCm();
 //   Serial.print("Distance from UltraSonic: ");
 //   Serial.print(distance);
@@ -573,8 +605,7 @@ void loop()
     delayMicroseconds(2);
     digitalWrite(pingPin, HIGH);
     delayMicroseconds(5);
-//    digitalWrite(pingPin, LOW);
-//    pinMode(pingPin, INPUT);
+
     duration = pulseIn(pingPin, HIGH);
     distanceInCm = microsecondsToCentimeters(duration);
 //    Serial.print(distanceInCm);
@@ -623,6 +654,3 @@ void loop()
    /************************** 4.  End Of Temp and Humidity Sensor*********************************/
 
 }
-
-
-
