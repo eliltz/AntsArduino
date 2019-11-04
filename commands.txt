@@ -1,0 +1,16 @@
+14.25 cm for second.
+in 100 rpm speed
+
+ctdr_2000
+ptdr
+ctdl_1000
+ptdl
+
+
+
+double durationOfTurningRight= 1000;  //For ant number 1  
+double durationOfTurningLeft= 1100; //For ant number 1  
+double durationOfMovement = 4000;
+
+//For ant number 2  = 1000 durationOfTurningRight= 
+double durationOfTurningLeft= 1000; //For ant number 2  1000
