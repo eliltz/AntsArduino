@@ -10,9 +10,11 @@ String data;
 
 char path[] = "/";   //identifier of this device
 
+//const char* ssid     = "Cisco07009";
 const char* ssid     = "Cisco07009";
 //const char* password = "";
-char* host = "192.168.1.141";  //replace this ip address with the ip address of your raspberry pi
+const char* password = "";
+//char* host = "192.168.1.141";  //replace this ip address with the ip address of your raspberry pi
 const int espport= 3000;
   
 WebSocketClient webSocketClient;
@@ -98,11 +100,12 @@ void loop() {
  if (client.connected()) {
     currentMillis=millis(); 
     webSocketClient.getData(data); 
-   //  webSocketClient.sendData(data); //DEBUG
+    // webSocketClient.sendData("Eli Eli Eli from ESP"); //DEBUG
      // Serial.println("outside data not empty");  //DEBUG
     if (data != "")
     {           
-       //   Serial.println("Inside data not empty"); //DEBUG
+      
+//          Serial.println("Inside data not empty"); //DEBUG
        //    Serial.println(data); //DEBUG
       // Length (with one extra character for the null terminator)
       int str_len = data.length() + 1; 
@@ -144,7 +147,7 @@ void loop() {
 
 
 
-      Serial.println("data is empty or no data was received from arduinoAnt");
+      //Serial.println("data is empty or no data was received from arduinoAnt");
      }
 
 
@@ -188,4 +191,3 @@ else
 //  }
 //  else{
 //}
-
